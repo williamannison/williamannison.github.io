@@ -639,7 +639,25 @@
           });
       }
 
+      // Client-side debounce mirrors the server's 10-second rule, so repeat
+      // frames of the same code never leave the device
+      var recentScans = {};
+      var CLIENT_DEBOUNCE_MS = 10000;
+
+      function clearClientDebounce(number) {
+        var n = parseInt(number, 10);
+        for (var k in recentScans) {
+          if (parseInt(k, 10) === n) delete recentScans[k];
+        }
+      }
+
       function onScanSuccess(decodedText, decodedResult) {
+        var now = Date.now();
+        if (recentScans[decodedText] && now - recentScans[decodedText] < CLIENT_DEBOUNCE_MS) {
+          return;
+        }
+        recentScans[decodedText] = now;
+
         // Resume audio context if suspended (iOS fix)
         if (audioContext && audioContext.state === 'suspended') {
           audioContext.resume();
@@ -649,7 +667,10 @@
         document.getElementById("username").value = decodedText;
         console.log("decoded text " + decodedText);
 
+        // Brief pause is visual feedback only — the scanner resumes right
+        // away instead of waiting for the server round trip
         if (html5QrCode) html5QrCode.pause(true);
+        setTimeout(safeResume, 700);
 
         doStuff();
       }
@@ -702,6 +723,28 @@
 
       document.getElementById("btn").addEventListener("click", doStuff);
 
+      function addPendingRow(number) {
+        var tbody = document.getElementById("table-body");
+        var row = tbody.insertRow(0);
+        row.style.backgroundColor = '#616161';
+        var cell = row.insertCell(0);
+        cell.colSpan = 6;
+        cell.textContent = '⏳ Checking #' + number + '…';
+        return row;
+      }
+
+      function removePendingRow(row) {
+        if (row && row.parentNode) row.parentNode.removeChild(row);
+      }
+
+      function markPendingRowFailed(row, number) {
+        if (!row || !row.parentNode) return;
+        row.style.backgroundColor = '#DBA901';
+        row.cells[0].textContent = '⚠️ #' + number + ' failed — please scan again';
+        clearClientDebounce(number);
+        setTimeout(function() { removePendingRow(row); }, 5000);
+      }
+
       function doStuff() {
         var name = document.getElementById("username").value;
         document.getElementById("username").value = "";
@@ -710,24 +753,26 @@
           return;
         }
 
+        // The scanner is already resuming — the server call completes in the
+        // background and the row appears when it lands
+        var pendingRow = addPendingRow(name);
+
         api('userClicked', { number: name })
           .then(function(j) {
-            if (!j) {
-              // Debounced (scanned twice within 10 seconds) — just resume
-              safeResume();
-              return;
-            }
+            removePendingRow(pendingRow);
+            if (!j) return; // Debounced on the server (scanned twice within 10s)
             addRowBelow(j);
           })
           .catch(function(error) {
             console.error('Scan failed:', error);
-            safeResume();
+            markPendingRowFailed(pendingRow, name);
           });
       }
 
       // Manual return function - bypasses debounce (click a row)
       function manualReturn(studentNumber) {
         console.log("Manual return for student: " + studentNumber);
+        clearClientDebounce(studentNumber);
         api('manualReturn', { number: studentNumber })
           .then(function(j) {
             if (!j) return;
