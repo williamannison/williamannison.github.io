@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Attendance Scan</title>
+    <base target="_self">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=.5, maximum-scale=.5,minimum-scale=.5 user-scalable=no, user-scalable=0"/>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <style>
+      .body,
+      .wrapper {
+        /* Break the flow */
+        position: absolute;
+        top: 0px;
+
+        /* Give them all the available space */
+        width: 100%;
+        height: 100%;
+
+        /* Remove the margins if any */
+        margin: 0;
+
+        /* Allow them to scroll down the document */
+        overscroll-behavior-y: contain;
+      }
+
+      .body {
+        /* Sending body at the bottom of the stack */
+        z-index: 1;
+      }
+
+      .wrapper {
+        /* Making the wrapper stack above the body */
+        z-index: 2;
+      }
+
+      body {
+        overscroll-behavior-y: none;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),url("https://drive.google.com/uc?id=13mIhneDSLAUxJ9Fil34f2sOGDiC5BwkX");
+        background-size: 200px 200px;
+        background-repeat: repeat;
+        background-attachment: fixed;
+        opacity: 1;
+      }
+
+      /* SIGN-IN OVERLAY */
+      #auth-overlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.97);
+        z-index: 5000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        padding: 20px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      #auth-overlay img {
+        max-height: 120px;
+        border-radius: 20px;
+        border: 5px solid red;
+        background: #FF0000;
+      }
+      #auth-overlay h2 {
+        margin: 0;
+        color: #c62828;
+        font-size: 40px;
+      }
+      #auth-overlay p {
+        color: #555;
+        max-width: 500px;
+        margin: 0;
+        font-size: 24px;
+      }
+      #auth-status {
+        color: #c62828;
+        font-weight: bold;
+        min-height: 1.2em;
+        font-size: 22px;
+      }
+      #auth-spinner {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #c62828;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: authspin 1s linear infinite;
+      }
+      @keyframes authspin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      table {
+        overscroll-behavior-y: contain;
+        border-collapse: separate;
+        border-spacing: 2px 3px;
+        margin-bottom: 100px;
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      th, td {
+        overscroll-behavior-y: contain;
+        border: 5px solid transparent;
+        opacity: 1;
+        border-radius: 12px;
+        padding: 8px 4px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-size: 0.85em;
+        word-wrap: break-word;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-shadow:
+        0 15.2px 1.3px rgba(0, 0, 0, 0.027),
+        0 26.5px 3.2px rgba(0, 0, 0, 0.041),
+        0 34.1px 6.2px rgba(0, 0, 0, 0.05),
+        0 38.6px 10.6px rgba(0, 0, 0, 0.058),
+        0 41.9px 17.5px rgba(0, 0, 0, 0.067),
+        0 50.5px 28.8px rgba(0, 0, 0, 0.081),
+        0 163px 47px rgba(0, 0, 0, 0.13);
+      }
+
+      tr:hover td {
+        transform: scale(1.01);
+        box-shadow:
+        0 20px 2px rgba(0, 0, 0, 0.04),
+        0 30px 5px rgba(0, 0, 0, 0.06),
+        0 40px 10px rgba(0, 0, 0, 0.08),
+        0 45px 15px rgba(0, 0, 0, 0.1),
+        0 50px 25px rgba(0, 0, 0, 0.12),
+        0 60px 40px rgba(0, 0, 0, 0.15),
+        0 180px 60px rgba(0, 0, 0, 0.2);
+      }
+
+      input {
+        text-align: center;
+        background-color: white !important;
+        opacity: 1 !important;
+        border-radius: 20px !important;
+        border: 2px solid red !important;
+        box-shadow:
+        0 15.2px 1.3px rgba(0, 0, 0, 0.027),
+        0 26.5px 3.2px rgba(0, 0, 0, 0.041),
+        0 34.1px 6.2px rgba(0, 0, 0, 0.05),
+        0 38.6px 10.6px rgba(0, 0, 0, 0.058),
+        0 41.9px 17.5px rgba(0, 0, 0, 0.067),
+        0 50.5px 28.8px rgba(0, 0, 0, 0.081),
+        0 163px 47px rgba(0, 0, 0, 0.13)
+      !important;
+      }
+
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      h1 {
+        background: linear-gradient(135deg, #e53935 0%, #c62828 100%) !important;
+        height: 90px;
+        opacity: 1 !important;
+        text-align: center !important;
+        border-radius: 20px !important;
+        position: relative;
+        top: 30px;
+        left: 10px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        letter-spacing: 1px;
+        box-shadow:
+           0 15.2px 1.3px rgba(0, 0, 0, 0.027),
+           0 26.5px 3.2px rgba(0, 0, 0, 0.041),
+           0 34.1px 6.2px rgba(0, 0, 0, 0.05),
+           0 38.6px 10.6px rgba(0, 0, 0, 0.058),
+           0 41.9px 17.5px rgba(0, 0, 0, 0.067),
+           0 50.5px 28.8px rgba(0, 0, 0, 0.081);
+      }
+      .header img {
+        float: right;
+        width: 30%;
+        height: 100px;
+        border-radius: 20px !important;
+        border: 5px solid red !important;
+        margin-right: 10px;
+        background: #FF0000;
+        box-shadow:
+           0 15.2px 1.3px rgba(0, 0, 0, 0.027),
+        0 26.5px 3.2px rgba(0, 0, 0, 0.041),
+        0 34.1px 6.2px rgba(0, 0, 0, 0.05),
+        0 38.6px 10.6px rgba(0, 0, 0, 0.058),
+        0 41.9px 17.5px rgba(0, 0, 0, 0.067),
+        0 50.5px 28.8px rgba(0, 0, 0, 0.081);
+      }
+      .header h1 {
+        position: relative;
+        width: 45%;
+        top: 10px;
+        left: 10px;
+        font-size: 6vw;
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+        }
+      }
+
+      #qr-reader {
+        animation: pulse 2s infinite;
+      }
+
+      .scanner-status {
+        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: bold;
+        display: inline-block;
+        margin: 10px;
+        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+      }
+    </style>
+  </head>
+
+  <body class="body">
+    <!-- SIGN-IN / LOADING OVERLAY -->
+    <div id="auth-overlay">
+      <img src="https://headlandsschool.co.uk/wp-content/uploads/2020/02/headlands-school-logo@2x.png" alt="School Logo">
+      <h2>Attendance Scan</h2>
+      <p id="auth-message">Sign in with your school Google account to continue.</p>
+      <div id="gsi-button"></div>
+      <div id="auth-spinner" style="display:none;"></div>
+      <div id="auth-status"></div>
+    </div>
+
+    <div class="wrapper">
+
+      <div class="header">
+        <img src="https://headlandsschool.co.uk/wp-content/uploads/2020/02/headlands-school-logo@2x.png" alt="logo" />
+        <h1>Attendance Scan</h1>
+      </div>
+
+      <div style="margin: 20px auto; max-width: 600px; text-align: center;">
+        <div class="scanner-status" id="scanner-status">
+          🎥 Scanner Starting…
+        </div>
+        <div style="
+          background: white;
+          border-radius: 20px;
+          padding: 10px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+          margin-bottom: 20px;
+        ">
+          <div id="qr-reader" style="width:100%; border-radius: 15px; overflow: hidden;"></div>
+        </div>
+      </div>
+
+      <div style="margin: 20px 10px;">
+        <label style="color: white; font-size: 18px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Student ID Number:</label>
+        <div class="row">
+          <div class="input-field col s3">
+            <input type="number" inputmode="decimal" id="username" autocomplete="off" style="color:black;font-size:40px;">
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <button id="btn" style="display: none;">Run it</button>
+
+          <a href="https://docs.google.com/spreadsheets/d/1pi7p3_cWoOnOUnL1LAIijhebToyR8d354e7Zp_LokTA/edit?usp=sharing"
+             target="_blank"
+             style="
+               background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+               border: none;
+               border-radius: 12px;
+               color: white;
+               padding: 12px 24px;
+               font-size: 16px;
+               font-weight: bold;
+               text-decoration: none;
+               box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+               transition: all 0.3s ease;
+               display: inline-block;
+             " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(245, 87, 108, 0.6)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(245, 87, 108, 0.4)'">
+            📊 View Main Register
+          </a>
+        </div>
+      </div>
+
+      <div style="width: 100%; overflow-x: auto; padding: 0 5px; margin-top: 20px;">
+        <table>
+          <tbody id="table-body" style="color:white;font-size:16px;">
+          </tbody>
+        </table>
+      </div><!-- close table wrapper -->
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <script>
+      // =====================================================================
+      // CONFIG — fill these in after following the README setup steps
+      // =====================================================================
+      const CONFIG = {
+        // Apps Script web app URL (ends in /exec)
+        SCRIPT_URL: 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE',
+        // OAuth 2.0 Web client ID — can be the same one as Toilet Scan v2
+        CLIENT_ID: 'PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com',
+        HOSTED_DOMAIN: 'headlandsschool.co.uk'
+      };
+
+      // =====================================================================
+      // AUTH — Google Identity Services (same pattern as Toilet Scan v2)
+      // =====================================================================
+      let ID_TOKEN = null;
+      let USER_EMAIL = '';
+      let tokenRefreshTimer = null;
+      let appStarted = false;
+
+      window.addEventListener('load', function() {
+        const wait = setInterval(function() {
+          if (window.google && google.accounts && google.accounts.id) {
+            clearInterval(wait);
+            initGoogleSignIn();
+          }
+        }, 100);
+      });
+
+      function initGoogleSignIn() {
+        google.accounts.id.initialize({
+          client_id: CONFIG.CLIENT_ID,
+          callback: onCredential,
+          auto_select: true,
+          itp_support: true
+        });
+        google.accounts.id.renderButton(document.getElementById('gsi-button'), {
+          theme: 'filled_blue',
+          size: 'large',
+          width: 280,
+          text: 'signin_with'
+        });
+        google.accounts.id.prompt();
+      }
+
+      function decodeJwtPayload(token) {
+        let base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        return JSON.parse(decodeURIComponent(escape(atob(base64))));
+      }
+
+      function onCredential(response) {
+        ID_TOKEN = response.credential;
+        let payload;
+        try {
+          payload = decodeJwtPayload(ID_TOKEN);
+        } catch (e) {
+          setAuthStatus('Could not read sign-in response. Please try again.');
+          return;
+        }
+
+        USER_EMAIL = (payload.email || '').toLowerCase();
+
+        // Immediate feedback only — the server enforces this on every request
+        if (!USER_EMAIL.endsWith('@' + CONFIG.HOSTED_DOMAIN)) {
+          ID_TOKEN = null;
+          setAuthStatus('Please sign in with your ' + CONFIG.HOSTED_DOMAIN + ' account.');
+          return;
+        }
+
+        scheduleTokenRefresh(payload.exp);
+        setAuthStatus('');
+        hideSignIn();
+
+        if (!appStarted) {
+          appStarted = true;
+          startApp();
+        }
+      }
+
+      function scheduleTokenRefresh(exp) {
+        if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
+        // Refresh 5 minutes before expiry; if the silent refresh fails, the
+        // next API call returns an AUTH error and the overlay reappears.
+        const msUntilRefresh = exp * 1000 - Date.now() - 5 * 60 * 1000;
+        tokenRefreshTimer = setTimeout(function() {
+          if (window.google && google.accounts && google.accounts.id) {
+            google.accounts.id.prompt();
+          }
+        }, Math.max(msUntilRefresh, 60 * 1000));
+      }
+
+      function setAuthStatus(msg) {
+        document.getElementById('auth-status').textContent = msg;
+      }
+
+      function showSignIn(message) {
+        ID_TOKEN = null;
+        document.getElementById('auth-spinner').style.display = 'none';
+        document.getElementById('gsi-button').style.display = 'block';
+        document.getElementById('auth-message').textContent =
+          message || 'Sign in with your school Google account to continue.';
+        document.getElementById('auth-overlay').style.display = 'flex';
+      }
+
+      function hideSignIn() {
+        document.getElementById('auth-overlay').style.display = 'none';
+      }
+
+      // =====================================================================
+      // API WRAPPER — replaces google.script.run
+      // =====================================================================
+      async function api(action, payload) {
+        if (!ID_TOKEN) {
+          showSignIn('Your session has expired. Please sign in again.');
+          throw new Error('Not signed in');
+        }
+        const res = await fetch(CONFIG.SCRIPT_URL, {
+          method: 'POST',
+          // text/plain keeps this a "simple request" so no CORS preflight,
+          // which Apps Script cannot answer
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ token: ID_TOKEN, action: action, payload: payload || {} })
+        });
+        if (!res.ok) {
+          throw new Error('Network error (' + res.status + ')');
+        }
+        const json = await res.json();
+        if (!json.ok) {
+          if (json.code === 'AUTH') {
+            showSignIn('Your session has expired. Please sign in again.');
+          }
+          throw new Error(json.error || 'Request failed');
+        }
+        return json.data;
+      }
+
+      // =====================================================================
+      // AUDIO — Web Audio API sounds (identical to v1)
+      // =====================================================================
+      var audioContext = null;
+
+      function initAudio() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      }
+
+      // UK retail scanner beep (860 Hz square wave - industry standard)
+      var audioBeep = {
+        play: function() {
+          if (!audioContext) initAudio();
+          if (audioContext.state === 'suspended') audioContext.resume();
+
+          var oscillator = audioContext.createOscillator();
+          var gainNode = audioContext.createGain();
+
+          var filter = audioContext.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 3000;
+          filter.Q.value = 1;
+
+          oscillator.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          oscillator.frequency.value = 860;
+          oscillator.type = 'square';
+
+          var now = audioContext.currentTime;
+          gainNode.gain.setValueAtTime(0, now);
+          gainNode.gain.linearRampToValueAtTime(0.25, now + 0.003);
+          gainNode.gain.setValueAtTime(0.25, now + 0.05);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+          oscillator.start(now);
+          oscillator.stop(now + 0.08);
+        }
+      };
+
+      // Pleasant notification sound (for H/D/P permissions)
+      var audioHonk = {
+        play: function() {
+          if (!audioContext) initAudio();
+          if (audioContext.state === 'suspended') audioContext.resume();
+
+          var now = audioContext.currentTime;
+
+          // First tone (G note - 784 Hz)
+          var osc1 = audioContext.createOscillator();
+          var gain1 = audioContext.createGain();
+
+          osc1.connect(gain1);
+          gain1.connect(audioContext.destination);
+
+          osc1.frequency.value = 784;
+          osc1.type = 'sine';
+
+          gain1.gain.setValueAtTime(0, now);
+          gain1.gain.linearRampToValueAtTime(0.18, now + 0.01);
+          gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+          osc1.start(now);
+          osc1.stop(now + 0.15);
+
+          // Second tone (E note - 659 Hz)
+          var osc2 = audioContext.createOscillator();
+          var gain2 = audioContext.createGain();
+
+          osc2.connect(gain2);
+          gain2.connect(audioContext.destination);
+
+          osc2.frequency.value = 659;
+          osc2.type = 'sine';
+
+          gain2.gain.setValueAtTime(0, now + 0.08);
+          gain2.gain.linearRampToValueAtTime(0.18, now + 0.09);
+          gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+          osc2.start(now + 0.08);
+          osc2.stop(now + 0.25);
+        }
+      };
+
+      // Attention alert (for Y/L/invalid) — three-tone ascending pattern
+      var audioWhistle = {
+        play: function() {
+          if (!audioContext) initAudio();
+          if (audioContext.state === 'suspended') audioContext.resume();
+
+          var now = audioContext.currentTime;
+          var frequencies = [523, 659, 784]; // C, E, G notes
+
+          for (var i = 0; i < 3; i++) {
+            var osc = audioContext.createOscillator();
+            var gain = audioContext.createGain();
+
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+
+            osc.frequency.value = frequencies[i];
+            osc.type = 'sine';
+
+            var startTime = now + (i * 0.08);
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.2, startTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
+
+            osc.start(startTime);
+            osc.stop(startTime + 0.12);
+          }
+        }
+      };
+
+      document.addEventListener('touchstart', initAudio, { once: true });
+      document.addEventListener('click', initAudio, { once: true });
+
+      // Keep audio context alive for iOS
+      setInterval(function() {
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      }, 1000);
+
+      function play() {
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        audioHonk.play();
+      }
+
+      function play1() {
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        audioWhistle.play();
+      }
+
+      // =====================================================================
+      // SCANNER
+      // =====================================================================
+      let html5QrCode = null;
+
+      function safeResume() {
+        try {
+          if (html5QrCode) html5QrCode.resume();
+        } catch (e) {
+          // resume() throws if the scanner is not paused — safe to ignore
+        }
+      }
+
+      function startScanner() {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        const config = {
+          fps: 10,
+          qrbox: undefined,
+          aspectRatio: 1,
+          disableFlip: false,
+          focusMode: "continuous",
+          advanced: [{ zoom: 1.5 }],
+          willReadFrequently: true
+        };
+
+        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+          .then(function() {
+            document.getElementById('scanner-status').textContent = '🎥 Scanner Active - Ready to Scan';
+          })
+          .catch(function(err) {
+            console.error('Scanner error:', err);
+            html5QrCode = null;
+            document.getElementById('scanner-status').textContent = '⚠️ Camera unavailable - use keypad below';
+            document.getElementById('scanner-status').style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+          });
+      }
+
+      function onScanSuccess(decodedText, decodedResult) {
+        // Resume audio context if suspended (iOS fix)
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        audioBeep.play();
+
+        document.getElementById("username").value = decodedText;
+        console.log("decoded text " + decodedText);
+
+        if (html5QrCode) html5QrCode.pause(true);
+
+        doStuff();
+      }
+
+      // =====================================================================
+      // APP START (after sign-in)
+      // =====================================================================
+      function startApp() {
+        startScanner();
+        refreshCache();
+        // Periodic cache refresh (every 1 minute, as in v1)
+        setInterval(refreshCache, 60000);
+      }
+
+      function refreshCache() {
+        if (!ID_TOKEN) return;
+        api('initializeCache')
+          .then(function(count) {
+            console.log('Cache refreshed with ' + count + ' students');
+          })
+          .catch(function(error) {
+            console.error('Cache refresh failed:', error);
+          });
+      }
+
+      // =====================================================================
+      // SCAN / INPUT HANDLING
+      // =====================================================================
+      document.getElementById("username").select();
+
+      var input = document.getElementById("username");
+      input.addEventListener("keyup", function(event) {
+        if (event.keyCode === 13) {
+          event.preventDefault();
+          document.getElementById("btn").click();
+        }
+      });
+      input.addEventListener("keydown", function(event) {
+        if (event.keyCode === 110) {
+          event.preventDefault();
+          document.getElementById("btn").click();
+        }
+      });
+      input.addEventListener("keydown", function(event) {
+        if (event.keyCode === 190) {
+          event.preventDefault();
+          document.getElementById("btn").click();
+        }
+      });
+
+      document.getElementById("btn").addEventListener("click", doStuff);
+
+      function doStuff() {
+        var name = document.getElementById("username").value;
+        document.getElementById("username").value = "";
+        if (!name) {
+          safeResume();
+          return;
+        }
+
+        api('userClicked', { number: name })
+          .then(function(j) {
+            if (!j) {
+              // Debounced (scanned twice within 10 seconds) — just resume
+              safeResume();
+              return;
+            }
+            addRowBelow(j);
+          })
+          .catch(function(error) {
+            console.error('Scan failed:', error);
+            safeResume();
+          });
+      }
+
+      // Manual return function - bypasses debounce (click a row)
+      function manualReturn(studentNumber) {
+        console.log("Manual return for student: " + studentNumber);
+        api('manualReturn', { number: studentNumber })
+          .then(function(j) {
+            if (!j) return;
+            addRowBelow(j);
+          })
+          .catch(function(error) {
+            console.error('Manual return failed:', error);
+          });
+      }
+
+      // =====================================================================
+      // TABLE RENDERING (ported from v1)
+      // =====================================================================
+      function addRowBelow(j) {
+        if (!j) {
+          safeResume();
+          return;
+        }
+
+        var test = "OUT";
+        var tbody = document.getElementById("table-body");
+
+        for (var i = 0; i < tbody.rows.length; i++) {
+
+          if (tbody.rows[i].cells[1].textContent === String(j[1])) {
+            test = "RETURNED";
+            tbody.rows[i].cells[5].textContent = "RETURNED " + j[0];
+
+            var box0 = tbody.rows[i].cells[0].textContent;
+            var box1 = tbody.rows[i].cells[1].textContent;
+            var box2 = tbody.rows[i].cells[2].textContent;
+            var box3 = tbody.rows[i].cells[3].textContent;
+            var box4 = tbody.rows[i].cells[4].textContent;
+            var box5 = tbody.rows[i].cells[5].textContent;
+
+            tbody.deleteRow(i);
+
+            var theFirstChild = tbody.firstChild;
+
+            var row = document.createElement("tr");
+            var col1 = document.createElement("td");
+            col1.textContent = box0;
+            var col2 = document.createElement("td");
+            col2.textContent = box1;
+            var col3 = document.createElement("td");
+            col3.textContent = box2;
+            var col4 = document.createElement("td");
+            col4.textContent = box3;
+            var col5 = document.createElement("td");
+            col5.textContent = box4;
+            var col6 = document.createElement("td");
+            col6.textContent = box5;
+
+            row.appendChild(col1);
+            row.appendChild(col2);
+            row.appendChild(col3);
+            row.appendChild(col4);
+            row.appendChild(col5);
+            row.appendChild(col6);
+
+            if (box3 == "Y") {
+              tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#DF0101';
+              safeResume();
+              return;
+            }
+
+            if (box3 == "P") {
+              tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#FF00FF';
+              safeResume();
+              return;
+            }
+
+            if (box3 == "INVALID") {
+              tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#DBA901';
+              safeResume();
+            } else {
+              tbody.insertBefore(row, theFirstChild).style.backgroundColor = 'green';
+              safeResume();
+              if (box3 == "L") {
+                tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#1736CE';
+                safeResume();
+              }
+            }
+          }
+        }
+
+        if (test === "OUT") {
+          var theFirstChild = tbody.firstChild;
+
+          var row = document.createElement("tr");
+          var col1 = document.createElement("td");
+          col1.textContent = j[0];
+          var col2 = document.createElement("td");
+          col2.textContent = j[1];
+          var col3 = document.createElement("td");
+          col3.textContent = j[2];
+          var col4 = document.createElement("td");
+          col4.textContent = j[3];
+          var col5 = document.createElement("td");
+          col5.textContent = j[4];
+          var col6 = document.createElement("td");
+          col6.textContent = j[5];
+
+          row.appendChild(col1);
+          row.appendChild(col2);
+          row.appendChild(col3);
+          row.appendChild(col4);
+          row.appendChild(col5);
+          row.appendChild(col6);
+
+          // Make row clickable for manual return
+          row.style.cursor = 'pointer';
+          row.onclick = function() {
+            var studentNumber = this.cells[1].textContent;
+            manualReturn(studentNumber);
+          };
+
+          if (j[3] == "Y") {
+            tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#DF0101';
+            play1(); // Alert sound for behavior issues
+            safeResume();
+            return;
+          }
+
+          if (j[3] == "H") {
+            tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#9B7653';
+            play();
+            safeResume();
+            return;
+          }
+
+          if (j[3] == "D") {
+            tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#fa4d0a';
+            play();
+            safeResume();
+            return;
+          }
+
+          if (j[3] == "P") {
+            tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#FF00FF';
+            play();
+            safeResume();
+            return;
+          }
+
+          if (j[3] == "INVALID") {
+            tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#DBA901';
+            play1();
+            safeResume();
+          } else {
+            tbody.insertBefore(row, theFirstChild).style.backgroundColor = 'green';
+            safeResume();
+            if (j[3] == "L") {
+              tbody.insertBefore(row, theFirstChild).style.backgroundColor = '#1736CE';
+              play1(); // Alert sound for late students
+              safeResume();
+            }
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
