@@ -761,7 +761,12 @@
           .then(function(j) {
             removePendingRow(pendingRow);
             if (!j) return; // Debounced on the server (scanned twice within 10s)
-            addRowBelow(j);
+            try {
+              addRowBelow(j);
+            } catch (e) {
+              // A rendering bug must not make the scan look like it failed
+              console.error('Row render error:', e);
+            }
           })
           .catch(function(error) {
             console.error('Scan failed:', error);
@@ -796,6 +801,9 @@
         var tbody = document.getElementById("table-body");
 
         for (var i = 0; i < tbody.rows.length; i++) {
+
+          // Skip pending "Checking…" placeholder rows (single cell, colSpan 6)
+          if (!tbody.rows[i].cells[1]) continue;
 
           if (tbody.rows[i].cells[1].textContent === String(j[1])) {
             test = "RETURNED";
